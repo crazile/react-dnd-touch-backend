@@ -258,6 +258,8 @@ export class TouchBackend {
     }
 
     handleTopMoveEndCapture (e) {
+        clearTimeout(this.timeout);
+
         if (!this.monitor.isDragging() || this.monitor.didDrop()) {
             this.moveStartSourceIds = null;
             return;
