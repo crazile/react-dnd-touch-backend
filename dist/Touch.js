@@ -141,8 +141,8 @@ var TouchBackend = exports.TouchBackend = function () {
             this.constructor.isSetUp = false;
             this._mouseClientOffset = {};
 
+            this.removeEventListener(window, 'start', this.getTopMoveStartHandler());
             this.removeEventListener(window, 'start', this.handleTopMoveStartCapture, true);
-            this.removeEventListener(window, 'start', this.handleTopMoveStart);
             this.removeEventListener(window, 'move', this.handleTopMoveCapture, true);
             this.removeEventListener(window, 'move', this.handleTopMove);
             this.removeEventListener(window, 'end', this.handleTopMoveEndCapture, true);
