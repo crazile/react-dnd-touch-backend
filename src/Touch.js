@@ -143,9 +143,13 @@ export class TouchBackend {
 
         this.addEventListener(node, 'start', handleMoveStart);
 
+        const handleClickDragSource = this.handleClickDragSource.bind(this, sourceId);
+        node.addEventListener('click', handleClickDragSource, true);
+
         return () => {
             delete this.sourceNodes[sourceId];
             this.removeEventListener(node, 'start', handleMoveStart);
+            node.removeEventListener('click', handleClickDragSource, true);
         };
     }
 
@@ -197,6 +201,13 @@ export class TouchBackend {
         return () => {
             this.removeEventListener(document.querySelector('body'), 'move', handleMove);
         };
+    }
+
+    handleClickDragSource (sourceId, e) {
+        if (this._lastDropEventTimeStamp && this._lastDropEventTimeStamp === e.timeStamp) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
     }
 
     getSourceClientOffset (sourceId) {
@@ -256,7 +267,6 @@ export class TouchBackend {
             return;
         }
 
-
         // If we're not dragging and we've moved a little, that counts as a drag start
         if (
             !this.monitor.isDragging() &&
@@ -312,6 +322,7 @@ export class TouchBackend {
         e.preventDefault();
 
         this._mouseClientOffset = {};
+        this._lastDropEventTimeStamp = e.timeStamp;
 
         this.uninstallSourceNodeRemovalObserver();
         this.actions.drop();

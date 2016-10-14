@@ -173,9 +173,13 @@ var TouchBackend = exports.TouchBackend = function () {
 
             this.addEventListener(node, 'start', handleMoveStart);
 
+            var handleClickDragSource = this.handleClickDragSource.bind(this, sourceId);
+            node.addEventListener('click', handleClickDragSource, true);
+
             return function () {
                 delete _this.sourceNodes[sourceId];
                 _this.removeEventListener(node, 'start', handleMoveStart);
+                node.removeEventListener('click', handleClickDragSource, true);
             };
         }
     }, {
@@ -232,6 +236,14 @@ var TouchBackend = exports.TouchBackend = function () {
             return function () {
                 _this3.removeEventListener(document.querySelector('body'), 'move', handleMove);
             };
+        }
+    }, {
+        key: 'handleClickDragSource',
+        value: function handleClickDragSource(sourceId, e) {
+            if (this._lastDropEventTimeStamp && this._lastDropEventTimeStamp === e.timeStamp) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
         }
     }, {
         key: 'getSourceClientOffset',
@@ -348,6 +360,7 @@ var TouchBackend = exports.TouchBackend = function () {
             e.preventDefault();
 
             this._mouseClientOffset = {};
+            this._lastDropEventTimeStamp = e.timeStamp;
 
             this.uninstallSourceNodeRemovalObserver();
             this.actions.drop();
