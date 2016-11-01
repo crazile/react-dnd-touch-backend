@@ -317,7 +317,7 @@ var TouchBackend = exports.TouchBackend = function () {
                 return;
             }
 
-            // Allow drag to be canceled
+            // Allow drag to be pre-empted
             if (e.defaultPrevented && !this.monitor.isDragging()) {
                 this._mouseClientOffset = {};
             }
@@ -362,6 +362,8 @@ var TouchBackend = exports.TouchBackend = function () {
         value: function handleTopMoveEndCapture(e) {
             clearTimeout(this.timeout);
 
+            this._mouseClientOffset = {};
+
             if (!this.monitor.isDragging() || this.monitor.didDrop()) {
                 this.moveStartSourceIds = null;
                 return;
@@ -369,7 +371,6 @@ var TouchBackend = exports.TouchBackend = function () {
 
             e.preventDefault();
 
-            this._mouseClientOffset = {};
             this._lastDropEventTimeStamp = e.timeStamp;
 
             this.uninstallSourceNodeRemovalObserver();

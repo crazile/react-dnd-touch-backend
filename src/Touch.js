@@ -324,6 +324,8 @@ export class TouchBackend {
     handleTopMoveEndCapture (e) {
         clearTimeout(this.timeout);
 
+        this._mouseClientOffset = {};
+
         if (!this.monitor.isDragging() || this.monitor.didDrop()) {
             this.moveStartSourceIds = null;
             return;
@@ -331,7 +333,6 @@ export class TouchBackend {
 
         e.preventDefault();
 
-        this._mouseClientOffset = {};
         this._lastDropEventTimeStamp = e.timeStamp;
 
         this.uninstallSourceNodeRemovalObserver();
