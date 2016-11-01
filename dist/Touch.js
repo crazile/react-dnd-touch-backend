@@ -98,6 +98,7 @@ var TouchBackend = exports.TouchBackend = function () {
         this.targetNodeOptions = {};
         this.listenerTypes = [];
         this._mouseClientOffset = {};
+        this._suppressContextMenu = false;
 
         if (options.enableMouseEvents) {
             this.listenerTypes.push('mouse');
@@ -114,6 +115,8 @@ var TouchBackend = exports.TouchBackend = function () {
         this.handleTopMoveCapture = this.handleTopMoveCapture.bind(this);
         this.handleTopMove = this.handleTopMove.bind(this);
         this.handleTopMoveEndCapture = this.handleTopMoveEndCapture.bind(this);
+        this.handleTopMoveCancelCapture = this.handleTopMoveCancelCapture.bind(this);
+        this.handleShowContextMenu = this.handleShowContextMenu.bind(this);
     }
 
     _createClass(TouchBackend, [{
@@ -131,7 +134,9 @@ var TouchBackend = exports.TouchBackend = function () {
             this.addEventListener(window, 'move', this.handleTopMove);
             this.addEventListener(window, 'move', this.handleTopMoveCapture, true);
             this.addEventListener(window, 'end', this.handleTopMoveEndCapture, true);
-            this.addEventListener(window, 'cancel', this.handleTopMoveEndCapture, true);
+            this.addEventListener(window, 'cancel', this.handleTopMoveCancelCapture, true);
+
+            window.addEventListener('contextmenu', this.handleShowContextMenu);
         }
     }, {
         key: 'teardown',
@@ -148,7 +153,9 @@ var TouchBackend = exports.TouchBackend = function () {
             this.removeEventListener(window, 'move', this.handleTopMoveCapture, true);
             this.removeEventListener(window, 'move', this.handleTopMove);
             this.removeEventListener(window, 'end', this.handleTopMoveEndCapture, true);
-            this.removeEventListener(window, 'cancel', this.handleTopMoveEndCapture, true);
+            this.removeEventListener(window, 'cancel', this.handleTopMoveCancelCapture, true);
+
+            window.removeEventListener('contextmenu', this.handleShowContextMenu);
 
             this.uninstallSourceNodeRemovalObserver();
         }
@@ -177,9 +184,9 @@ var TouchBackend = exports.TouchBackend = function () {
         value: function connectDragSource(sourceId, node, options) {
             var _this = this;
 
-            var handleMoveStart = this.handleMoveStart.bind(this, sourceId);
             this.sourceNodes[sourceId] = node;
 
+            var handleMoveStart = this.handleMoveStart.bind(this, sourceId);
             this.addEventListener(node, 'start', handleMoveStart);
 
             var handleClickDragSource = this.handleClickDragSource.bind(this, sourceId);
@@ -210,9 +217,6 @@ var TouchBackend = exports.TouchBackend = function () {
             var _this3 = this;
 
             var handleMove = function handleMove(e) {
-                /**
-                 * Grab the coordinates for the current mouse/touch position
-                 */
                 var coords = getEventClientOffset(e);
 
                 /**
@@ -235,6 +239,15 @@ var TouchBackend = exports.TouchBackend = function () {
             return function () {
                 _this3.removeEventListener(document.querySelector('body'), 'move', handleMove);
             };
+        }
+    }, {
+        key: 'handleShowContextMenu',
+        value: function handleShowContextMenu(e) {
+            if (this._suppressContextMenu) {
+                e.preventDefault();
+            } else {
+                this.cancelDrag();
+            }
         }
     }, {
         key: 'handleClickDragSource',
@@ -290,6 +303,11 @@ var TouchBackend = exports.TouchBackend = function () {
         key: 'handleTopMoveStartDelay',
         value: function handleTopMoveStartDelay(e) {
             var delay = e.type === eventNames.touch.start ? this.delayTouchStart : this.delayMouseStart;
+
+            if (delay) {
+                this._suppressContextMenu = true;
+            }
+
             this.timeout = setTimeout(this.handleTopMoveStart.bind(this, e), delay);
         }
     }, {
@@ -318,7 +336,7 @@ var TouchBackend = exports.TouchBackend = function () {
 
             // Allow drag to be pre-empted
             if (e.defaultPrevented && !this.monitor.isDragging()) {
-                this._mouseClientOffset = {};
+                this.cancelDrag();
             }
 
             // If we're not dragging and we've moved a little, that counts as a drag start
@@ -358,22 +376,47 @@ var TouchBackend = exports.TouchBackend = function () {
         }
     }, {
         key: 'handleTopMoveEndCapture',
-        value: function handleTopMoveEndCapture(e) {
+        value: function handleTopMoveEndCapture(event) {
+            this.endDrag(event);
+        }
+    }, {
+        key: 'handleTopMoveCancelCapture',
+        value: function handleTopMoveCancelCapture(event) {
+            this.cancelDrag(event);
+        }
+    }, {
+        key: 'cancelDrag',
+        value: function cancelDrag(event) {
+            this.endDrag(event, { cancelled: true });
+        }
+    }, {
+        key: 'endDrag',
+        value: function endDrag(event) {
+            var _ref = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+
+            var cancelled = _ref.cancelled;
+
             clearTimeout(this.timeout);
 
             this._mouseClientOffset = {};
+            this._suppressContextMenu = false;
 
             if (!this.monitor.isDragging() || this.monitor.didDrop()) {
                 this.moveStartSourceIds = null;
                 return;
             }
 
-            e.preventDefault();
-
-            this._lastDropEventTimeStamp = e.timeStamp;
-
             this.uninstallSourceNodeRemovalObserver();
-            this.actions.drop();
+
+            if (!cancelled) {
+                if (event) {
+                    this._lastDropEventTimeStamp = event.timeStamp;
+                    event.preventDefault();
+                }
+
+                this.actions.drop();
+            }
+
             this.actions.endDrag();
         }
     }, {

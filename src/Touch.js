@@ -76,6 +76,7 @@ export class TouchBackend {
         this.targetNodeOptions = {};
         this.listenerTypes = [];
         this._mouseClientOffset = {};
+        this._suppressContextMenu = false;
 
         if (options.enableMouseEvents) {
             this.listenerTypes.push('mouse');
@@ -92,6 +93,8 @@ export class TouchBackend {
         this.handleTopMoveCapture = this.handleTopMoveCapture.bind(this);
         this.handleTopMove = this.handleTopMove.bind(this);
         this.handleTopMoveEndCapture = this.handleTopMoveEndCapture.bind(this);
+        this.handleTopMoveCancelCapture = this.handleTopMoveCancelCapture.bind(this);
+        this.handleShowContextMenu = this.handleShowContextMenu.bind(this);
     }
 
     setup () {
@@ -107,7 +110,9 @@ export class TouchBackend {
         this.addEventListener(window, 'move',   this.handleTopMove);
         this.addEventListener(window, 'move',   this.handleTopMoveCapture, true);
         this.addEventListener(window, 'end',    this.handleTopMoveEndCapture, true);
-        this.addEventListener(window, 'cancel', this.handleTopMoveEndCapture, true);
+        this.addEventListener(window, 'cancel', this.handleTopMoveCancelCapture, true);
+
+        window.addEventListener('contextmenu', this.handleShowContextMenu);
     }
 
     teardown () {
@@ -123,7 +128,9 @@ export class TouchBackend {
         this.removeEventListener(window, 'move',   this.handleTopMoveCapture, true);
         this.removeEventListener(window, 'move',   this.handleTopMove);
         this.removeEventListener(window, 'end',    this.handleTopMoveEndCapture, true);
-        this.removeEventListener(window, 'cancel', this.handleTopMoveEndCapture, true);
+        this.removeEventListener(window, 'cancel', this.handleTopMoveCancelCapture, true);
+
+        window.removeEventListener('contextmenu', this.handleShowContextMenu);
 
         this.uninstallSourceNodeRemovalObserver();
     }
@@ -147,9 +154,9 @@ export class TouchBackend {
     }
 
     connectDragSource (sourceId, node, options) {
-        const handleMoveStart = this.handleMoveStart.bind(this, sourceId);
         this.sourceNodes[sourceId] = node;
 
+        const handleMoveStart = this.handleMoveStart.bind(this, sourceId);
         this.addEventListener(node, 'start', handleMoveStart);
 
         const handleClickDragSource = this.handleClickDragSource.bind(this, sourceId);
@@ -174,9 +181,6 @@ export class TouchBackend {
 
     connectDropTarget (targetId, node) {
         const handleMove = (e) => {
-            /**
-             * Grab the coordinates for the current mouse/touch position
-             */
             const coords = getEventClientOffset(e);
 
             /**
@@ -196,10 +200,17 @@ export class TouchBackend {
          */
         this.addEventListener(document.querySelector('body'), 'move', handleMove);
 
-
         return () => {
             this.removeEventListener(document.querySelector('body'), 'move', handleMove);
         };
+    }
+
+    handleShowContextMenu (e) {
+        if (this._suppressContextMenu) {
+            e.preventDefault();
+        } else {
+            this.cancelDrag();
+        }
     }
 
     handleClickDragSource (sourceId, e) {
@@ -250,6 +261,11 @@ export class TouchBackend {
         const delay = (e.type === eventNames.touch.start)
             ? this.delayTouchStart
             : this.delayMouseStart;
+
+        if (delay) {
+            this._suppressContextMenu = true;
+        }
+
         this.timeout = setTimeout(this.handleTopMoveStart.bind(this, e), delay);
     }
 
@@ -273,7 +289,7 @@ export class TouchBackend {
 
         // Allow drag to be pre-empted
         if (e.defaultPrevented && !this.monitor.isDragging()) {
-            this._mouseClientOffset = {};
+            this.cancelDrag();
         }
 
         // If we're not dragging and we've moved a little, that counts as a drag start
@@ -320,22 +336,40 @@ export class TouchBackend {
         });
     }
 
-    handleTopMoveEndCapture (e) {
+    handleTopMoveEndCapture (event) {
+        this.endDrag(event);
+    }
+
+    handleTopMoveCancelCapture (event) {
+        this.cancelDrag(event);
+    }
+
+    cancelDrag (event) {
+        this.endDrag(event, { cancelled: true });
+    }
+
+    endDrag (event, { cancelled } = {}) {
         clearTimeout(this.timeout);
 
         this._mouseClientOffset = {};
+        this._suppressContextMenu = false;
 
         if (!this.monitor.isDragging() || this.monitor.didDrop()) {
             this.moveStartSourceIds = null;
             return;
         }
 
-        e.preventDefault();
-
-        this._lastDropEventTimeStamp = e.timeStamp;
-
         this.uninstallSourceNodeRemovalObserver();
-        this.actions.drop();
+
+        if (!cancelled) {
+            if (event) {
+                this._lastDropEventTimeStamp = event.timeStamp;
+                event.preventDefault();
+            }
+
+            this.actions.drop();
+        }
+
         this.actions.endDrag();
     }
 
