@@ -272,6 +272,11 @@ var TouchBackend = exports.TouchBackend = function () {
     }, {
         key: 'handleTopMoveStart',
         value: function handleTopMoveStart(e) {
+            // Allow other systems to prevent dragging
+            if (e.defaultPrevented) {
+                return;
+            }
+
             // Don't prematurely preventDefault() here since it might:
             // 1. Mess up scrolling
             // 2. Mess up long tap (which brings up context menu)
@@ -310,6 +315,11 @@ var TouchBackend = exports.TouchBackend = function () {
 
             if (!clientOffset) {
                 return;
+            }
+
+            // Allow drag to be canceled
+            if (e.defaultPrevented && !this.monitor.isDragging()) {
+                this._mouseClientOffset = {};
             }
 
             // If we're not dragging and we've moved a little, that counts as a drag start
