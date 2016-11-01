@@ -46,7 +46,8 @@ const eventNames = {
     touch: {
         start: 'touchstart',
         move: 'touchmove',
-        end: 'touchend'
+        end: 'touchend',
+        cancel: 'touchcancel'
     }
 };
 
@@ -101,11 +102,12 @@ export class TouchBackend {
         invariant(!this.constructor.isSetUp, 'Cannot have two Touch backends at the same time.');
         this.constructor.isSetUp = true;
 
-        this.addEventListener(window, 'start', this.getTopMoveStartHandler());
-        this.addEventListener(window, 'start', this.handleTopMoveStartCapture, true);
-        this.addEventListener(window, 'move',  this.handleTopMove);
-        this.addEventListener(window, 'move',  this.handleTopMoveCapture, true);
-        this.addEventListener(window, 'end',   this.handleTopMoveEndCapture, true);
+        this.addEventListener(window, 'start',  this.getTopMoveStartHandler());
+        this.addEventListener(window, 'start',  this.handleTopMoveStartCapture, true);
+        this.addEventListener(window, 'move',   this.handleTopMove);
+        this.addEventListener(window, 'move',   this.handleTopMoveCapture, true);
+        this.addEventListener(window, 'end',    this.handleTopMoveEndCapture, true);
+        this.addEventListener(window, 'cancel', this.handleTopMoveEndCapture, true);
     }
 
     teardown () {
@@ -116,24 +118,31 @@ export class TouchBackend {
         this.constructor.isSetUp = false;
         this._mouseClientOffset = {};
 
-        this.removeEventListener(window, 'start', this.getTopMoveStartHandler());
-        this.removeEventListener(window, 'start', this.handleTopMoveStartCapture, true);
-        this.removeEventListener(window, 'move',  this.handleTopMoveCapture, true);
-        this.removeEventListener(window, 'move',  this.handleTopMove);
-        this.removeEventListener(window, 'end',   this.handleTopMoveEndCapture, true);
+        this.removeEventListener(window, 'start',  this.getTopMoveStartHandler());
+        this.removeEventListener(window, 'start',  this.handleTopMoveStartCapture, true);
+        this.removeEventListener(window, 'move',   this.handleTopMoveCapture, true);
+        this.removeEventListener(window, 'move',   this.handleTopMove);
+        this.removeEventListener(window, 'end',    this.handleTopMoveEndCapture, true);
+        this.removeEventListener(window, 'cancel', this.handleTopMoveEndCapture, true);
 
         this.uninstallSourceNodeRemovalObserver();
     }
 
     addEventListener (subject, event, handler, capture) {
         this.listenerTypes.forEach(function (listenerType) {
-            subject.addEventListener(eventNames[listenerType][event], handler, capture);
+            const eventName = eventNames[listenerType][event];
+            if (eventName) {
+                subject.addEventListener(eventName, handler, capture);
+            }
         });
     }
 
     removeEventListener (subject, event, handler, capture) {
         this.listenerTypes.forEach(function (listenerType) {
-            subject.removeEventListener(eventNames[listenerType][event], handler, capture);
+            const eventName = eventNames[listenerType][event];
+            if (eventName) {
+                subject.removeEventListener(eventName, handler, capture);
+            }
         });
     }
 
@@ -165,27 +174,17 @@ export class TouchBackend {
 
     connectDropTarget (targetId, node) {
         const handleMove = (e) => {
-            let coords;
-
             /**
              * Grab the coordinates for the current mouse/touch position
              */
-            switch (e.type) {
-            case eventNames.mouse.move:
-                coords = { x: e.clientX, y: e.clientY };
-                break;
-
-            case eventNames.touch.move:
-                coords = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                break;
-            }
+            const coords = getEventClientOffset(e);
 
             /**
              * Use the coordinates to grab the element the drag ended on.
              * If the element is the same as the target node (or any of it's children) then we have hit a drop target and can handle the move.
              */
-            let droppedOn = document.elementFromPoint(coords.x, coords.y);
-            let childMatch = node.contains(droppedOn);
+            const droppedOn = document.elementFromPoint(coords.x, coords.y);
+            const childMatch = node.contains(droppedOn);
 
             if (droppedOn === node || childMatch) {
                 return this.handleMove(e, targetId);

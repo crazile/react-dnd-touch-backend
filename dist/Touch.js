@@ -65,7 +65,8 @@ var eventNames = {
     touch: {
         start: 'touchstart',
         move: 'touchmove',
-        end: 'touchend'
+        end: 'touchend',
+        cancel: 'touchcancel'
     }
 };
 
@@ -130,6 +131,7 @@ var TouchBackend = exports.TouchBackend = function () {
             this.addEventListener(window, 'move', this.handleTopMove);
             this.addEventListener(window, 'move', this.handleTopMoveCapture, true);
             this.addEventListener(window, 'end', this.handleTopMoveEndCapture, true);
+            this.addEventListener(window, 'cancel', this.handleTopMoveEndCapture, true);
         }
     }, {
         key: 'teardown',
@@ -146,6 +148,7 @@ var TouchBackend = exports.TouchBackend = function () {
             this.removeEventListener(window, 'move', this.handleTopMoveCapture, true);
             this.removeEventListener(window, 'move', this.handleTopMove);
             this.removeEventListener(window, 'end', this.handleTopMoveEndCapture, true);
+            this.removeEventListener(window, 'cancel', this.handleTopMoveEndCapture, true);
 
             this.uninstallSourceNodeRemovalObserver();
         }
@@ -153,14 +156,20 @@ var TouchBackend = exports.TouchBackend = function () {
         key: 'addEventListener',
         value: function addEventListener(subject, event, handler, capture) {
             this.listenerTypes.forEach(function (listenerType) {
-                subject.addEventListener(eventNames[listenerType][event], handler, capture);
+                var eventName = eventNames[listenerType][event];
+                if (eventName) {
+                    subject.addEventListener(eventName, handler, capture);
+                }
             });
         }
     }, {
         key: 'removeEventListener',
         value: function removeEventListener(subject, event, handler, capture) {
             this.listenerTypes.forEach(function (listenerType) {
-                subject.removeEventListener(eventNames[listenerType][event], handler, capture);
+                var eventName = eventNames[listenerType][event];
+                if (eventName) {
+                    subject.removeEventListener(eventName, handler, capture);
+                }
             });
         }
     }, {
@@ -201,20 +210,10 @@ var TouchBackend = exports.TouchBackend = function () {
             var _this3 = this;
 
             var handleMove = function handleMove(e) {
-                var coords = void 0;
-
                 /**
                  * Grab the coordinates for the current mouse/touch position
                  */
-                switch (e.type) {
-                    case eventNames.mouse.move:
-                        coords = { x: e.clientX, y: e.clientY };
-                        break;
-
-                    case eventNames.touch.move:
-                        coords = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                        break;
-                }
+                var coords = getEventClientOffset(e);
 
                 /**
                  * Use the coordinates to grab the element the drag ended on.
