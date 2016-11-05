@@ -82,13 +82,17 @@ var TouchBackend = exports.TouchBackend = function () {
             enableTouchEvents: true,
             enableMouseEvents: false,
             delayTouchStart: 0,
-            delayMouseStart: 0
+            delayMouseStart: 0,
+            minMoveTouchStart: 0,
+            minMoveMouseStart: 0
         }, options);
 
         this.actions = manager.getActions();
         this.monitor = manager.getMonitor();
         this.registry = manager.getRegistry();
 
+        this.minMoveTouchStart = options.minMoveTouchStart;
+        this.minMoveMouseStart = options.minMoveMouseStart;
         this.delayTouchStart = options.delayTouchStart;
         this.delayMouseStart = options.delayMouseStart;
         this.sourceNodes = {};
@@ -339,8 +343,10 @@ var TouchBackend = exports.TouchBackend = function () {
                 this.cancelDrag();
             }
 
+            var dragStartMinOffsetChange = e.type === eventNames.touch.move ? this.minMoveTouchStart : this.minMoveMouseStart;
+
             // If we're not dragging and we've moved a little, that counts as a drag start
-            if (!this.monitor.isDragging() && this._mouseClientOffset.hasOwnProperty('x') && moveStartSourceIds && (this._mouseClientOffset.x !== clientOffset.x || this._mouseClientOffset.y !== clientOffset.y)) {
+            if (!this.monitor.isDragging() && this._mouseClientOffset.hasOwnProperty('x') && moveStartSourceIds && (Math.abs(this._mouseClientOffset.x - clientOffset.x) >= dragStartMinOffsetChange || Math.abs(this._mouseClientOffset.y - clientOffset.y) >= dragStartMinOffsetChange)) {
                 this.moveStartSourceIds = null;
                 this.actions.beginDrag(moveStartSourceIds, {
                     clientOffset: this._mouseClientOffset,
