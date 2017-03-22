@@ -273,7 +273,13 @@ var TouchBackend = exports.TouchBackend = function () {
         }
     }, {
         key: 'handleMoveStart',
-        value: function handleMoveStart(sourceId) {
+        value: function handleMoveStart(sourceId, event) {
+            // Prevent text selection when draging an element.
+            if (event instanceof MouseEvent) {
+                event.preventDefault();
+                event.defaultPreventedToAvoidTextSelection = true;
+            }
+
             this.moveStartSourceIds.unshift(sourceId);
         }
     }, {
@@ -289,7 +295,7 @@ var TouchBackend = exports.TouchBackend = function () {
         key: 'handleTopMoveStart',
         value: function handleTopMoveStart(e) {
             // Allow other systems to prevent dragging
-            if (e.defaultPrevented) {
+            if (e.defaultPrevented && !e.defaultPreventedToAvoidTextSelection) {
                 return;
             }
 
@@ -339,7 +345,7 @@ var TouchBackend = exports.TouchBackend = function () {
             }
 
             // Allow drag to be pre-empted
-            if (e.defaultPrevented && !this.monitor.isDragging()) {
+            if (e.defaultPrevented && !e.defaultPreventedToAvoidTextSelection && !this.monitor.isDragging()) {
                 this.cancelDrag();
             }
 

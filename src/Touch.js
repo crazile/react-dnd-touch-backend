@@ -232,7 +232,13 @@ export class TouchBackend {
         this.moveStartSourceIds = [];
     }
 
-    handleMoveStart (sourceId) {
+    handleMoveStart (sourceId, event) {
+        // Prevent text selection when draging an element.
+        if (event instanceof MouseEvent) {
+            event.preventDefault();
+            event.defaultPreventedToAvoidTextSelection = true;
+        }
+
         this.moveStartSourceIds.unshift(sourceId);
     }
 
@@ -246,7 +252,7 @@ export class TouchBackend {
 
     handleTopMoveStart (e) {
         // Allow other systems to prevent dragging
-        if (e.defaultPrevented) {
+        if (e.defaultPrevented && !e.defaultPreventedToAvoidTextSelection) {
             return;
         }
 
@@ -269,7 +275,7 @@ export class TouchBackend {
         if (delay) {
             this._suppressContextMenu = true;
         }
-
+        
         this.timeout = setTimeout(this.handleTopMoveStart.bind(this, e), delay);
     }
 
@@ -292,7 +298,7 @@ export class TouchBackend {
         }
 
         // Allow drag to be pre-empted
-        if (e.defaultPrevented && !this.monitor.isDragging()) {
+        if (e.defaultPrevented && !e.defaultPreventedToAvoidTextSelection && !this.monitor.isDragging()) {
             this.cancelDrag();
         }
 
