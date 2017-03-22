@@ -316,9 +316,12 @@ var TouchBackend = exports.TouchBackend = function () {
 
             if (delay) {
                 this._suppressContextMenu = true;
+                this.timeout = setTimeout(this.handleTopMoveStart.bind(this, e), delay);
+            } else {
+                // If delay is zero then bypass setTimeout() which otherwise risks being
+                // cancelled by a quick click-n-drag.
+                this.handleTopMoveStart(e);
             }
-
-            this.timeout = setTimeout(this.handleTopMoveStart.bind(this, e), delay);
         }
     }, {
         key: 'handleTopMoveCapture',
